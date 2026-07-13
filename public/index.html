@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Northstar Commerce</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="hero">
+      <nav class="nav">
+        <div class="brand">Northstar</div>
+        <div class="nav-links">
+          <a href="#products">Products</a>
+          <a href="#checkout">Checkout</a>
+          <a href="#admin">Admin</a>
+        </div>
+      </nav>
+      <div class="hero-content">
+        <div>
+          <p class="eyebrow">New season launch</p>
+          <h1>Upgrade your everyday with premium essentials.</h1>
+          <p class="hero-text">
+            Discover smart gadgets, audio favorites, and lifestyle upgrades tailored for modern living.
+          </p>
+          <a class="button primary" href="#products">Shop now</a>
+        </div>
+        <div class="hero-card">
+          <h3>Featured drop</h3>
+          <p>Nova Laptop</p>
+          <span>Power meets portability</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section id="products" class="products-section">
+        <div class="section-title">
+          <h2>Trending products</h2>
+          <p>Handpicked favorites designed to delight.</p>
+        </div>
+        <div class="auth-panel">
+          <div id="authStatus" class="status-text">Not signed in</div>
+          <form id="authForm" class="auth-form">
+            <input type="text" name="name" placeholder="Name" />
+            <input type="email" name="email" placeholder="Email" required />
+            <input type="password" name="password" placeholder="Password" required />
+            <button type="submit" class="button primary">Sign in / Register</button>
+          </form>
+        </div>
+        <div id="productGrid" class="product-grid"></div>
+      </section>
+
+      <aside class="cart-panel">
+        <div class="panel-header">
+          <h3>Your cart</h3>
+          <span id="cartCount">0 items</span>
+        </div>
+        <div id="cartItems" class="cart-items"></div>
+        <div class="cart-summary">
+          <div class="summary-row">
+            <span>Subtotal</span>
+            <strong id="subtotal">$0.00</strong>
+          </div>
+          <div class="summary-row">
+            <span>Shipping</span>
+            <strong>$12.00</strong>
+          </div>
+        </div>
+        <form id="checkoutForm" class="checkout-form">
+          <input type="text" name="name" placeholder="Your name" required />
+          <input type="email" name="email" placeholder="Email address" required />
+          <button type="submit" class="button primary full">Complete order</button>
+        </form>
+        <p id="feedback" class="feedback" aria-live="polite"></p>
+      </aside>
+    </main>
+
+    <section id="admin" class="admin-section">
+      <div class="section-title">
+        <h2>Admin tools</h2>
+        <p>Create new products and manage the catalog.</p>
+      </div>
+      <form id="adminForm" class="admin-form">
+        <input type="text" name="name" placeholder="Product name" required />
+        <input type="number" name="price" placeholder="Price" required />
+        <input type="text" name="category" placeholder="Category" />
+        <input type="text" name="image" placeholder="Image URL" />
+        <textarea name="description" placeholder="Description"></textarea>
+        <button type="submit" class="button primary">Add product</button>
+      </form>
+      <div id="adminMessage" class="feedback"></div>
+    </section>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
