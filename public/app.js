@@ -101,41 +101,44 @@ checkoutForm.addEventListener('submit', async (event) => {
   paymentButton.disabled = true;
   paymentButton.textContent = 'Processing…';
 
-  const intentResponse = await fetch('/api/payments/create-payment-intent', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ amount: subtotal + 12 })
-  });
-  const intentResult = await intentResponse.json();
+  try {
+    const intentResponse = await fetch('/api/payments/create-payment-intent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount: subtotal + 12 })
+    });
+    const intentResult = await intentResponse.json();
 
-  const payload = {
-    items: cart.map((item) => ({
-      id: item.id,
-      name: item.name,
-      price: item.price,
-      quantity: item.quantity
-    })),
-    customer
-  };
+    const payload = {
+      items: cart.map((item) => ({
+        id: item.id,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity
+      })),
+      customer
+    };
 
-  const response = await fetch('/api/checkout', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  });
-  const result = await response.json();
-  if (!response.ok) {
-    feedback.textContent = result.message || 'Checkout failed. Please try again.';
+    const response = await fetch('/api/checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const result = await response.json();
+    if (!response.ok) {
+      feedback.textContent = result.message || 'Checkout failed. Please try again.';
+      return;
+    }
+    feedback.textContent = `Order placed successfully! ${result.orderId} for ${result.customerName}. Payment intent ready: ${intentResult.clientSecret ? 'client secret generated' : 'using fallback mode'}.`;
+    cart = [];
+    renderCart();
+    checkoutForm.reset();
+  } catch (error) {
+    feedback.textContent = 'Could not reach the server. Please try again.';
+  } finally {
     paymentButton.disabled = false;
     paymentButton.textContent = 'Complete order';
-    return;
   }
-  feedback.textContent = `Order placed successfully! ${result.orderId} for ${result.customerName}. Payment intent ready: ${intentResult.clientSecret ? 'client secret generated' : 'using fallback mode'}.`;
-  cart = [];
-  renderCart();
-  checkoutForm.reset();
-  paymentButton.disabled = false;
-  paymentButton.textContent = 'Complete order';
 });
 
 authForm.addEventListener('submit', async (event) => {
