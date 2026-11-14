@@ -1,5 +1,8 @@
 const { listProducts } = require('../models/Product');
 const Order = require('../models/Order');
+const stripe = require('../config/stripe');
+
+const SHIPPING = 12;
 
 const getProducts = async (req, res) => {
   try {
@@ -11,36 +14,84 @@ const getProducts = async (req, res) => {
 };
 
 const createCheckout = async (req, res) => {
-  const { items = [], customer = {} } = req.body;
+  const { items: requested = [], customer = {} } = req.body || {};
 
-  if (items.length === 0) {
+  if (!Array.isArray(requested) || requested.length === 0) {
     return res.status(400).json({ message: 'Cart is empty' });
   }
 
-  const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const total = subtotal + 12;
-  const orderId = `ORD-${Date.now()}`;
-
   try {
+    // Never trust client-sent prices; look them up from the catalogue.
+    const catalogue = await listProducts();
+    const byId = new Map(catalogue.map((p) => [String(p.id || p._id), p]));
+    const items = [];
+    for (const item of requested) {
+      const product = byId.get(String(item.id));
+      const quantity = Number(item.quantity);
+      if (!product || !Number.isInteger(quantity) || quantity < 1) {
+        return res.status(400).json({ message: 'Invalid cart item' });
+      }
+      items.push({ id: String(item.id), name: product.name, price: product.price, quantity });
+    }
+
+    // Total in whole cents, exactly as charged by Stripe, so markOrderPaid's amount check matches.
+    const subtotalCents = items.reduce((sum, item) => sum + Math.round(item.price * 100) * item.quantity, 0);
+    const subtotal = subtotalCents / 100;
+    const total = (subtotalCents + SHIPPING * 100) / 100;
+    const orderId = `ORD-${Date.now()}`;
+    const customerName = customer.name || 'Guest';
+    const email = customer.email || 'guest@example.com';
+
+    // The order is only marked paid once Stripe confirms the charge (webhook or /api/payments/confirm).
+    let session = null;
+    if (stripe) {
+      const origin = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
+      session = await stripe.checkout.sessions.create({
+        mode: 'payment',
+        line_items: [
+          ...items.map((item) => ({
+            price_data: {
+              currency: 'usd',
+              product_data: { name: item.name },
+              unit_amount: Math.round(item.price * 100)
+            },
+            quantity: item.quantity
+          })),
+          {
+            price_data: { currency: 'usd', product_data: { name: 'Shipping' }, unit_amount: SHIPPING * 100 },
+            quantity: 1
+          }
+        ],
+        customer_email: customer.email || undefined,
+        client_reference_id: orderId,
+        metadata: { orderId },
+        success_url: `${origin}/?order=${orderId}&session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${origin}/?order=${orderId}&cancelled=1`
+      });
+    }
+
     if (process.env.MONGODB_URI) {
       await Order.create({
         orderId,
-        customerName: customer.name || 'Guest',
-        email: customer.email || 'guest@example.com',
+        customerName,
+        email,
         items,
         subtotal,
-        shipping: 12,
+        shipping: SHIPPING,
         total,
-        status: 'paid'
+        status: 'pending',
+        stripeSessionId: session ? session.id : undefined
       });
     }
 
     res.json({
       success: true,
       orderId,
-      customerName: customer.name || 'Guest',
+      customerName,
       total: Number(total.toFixed(2)),
-      items
+      items,
+      status: 'pending',
+      checkoutUrl: session ? session.url : null
     });
   } catch (error) {
     res.status(500).json({ message: error.message });

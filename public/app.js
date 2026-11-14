@@ -97,39 +97,41 @@ checkoutForm.addEventListener('submit', async (event) => {
   }
 
   const customer = Object.fromEntries(new FormData(checkoutForm));
-  const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   paymentButton.disabled = true;
   paymentButton.textContent = 'Processing…';
 
-  const intentResponse = await fetch('/api/payments/create-payment-intent', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ amount: subtotal + 12 })
-  });
-  const intentResult = await intentResponse.json();
+  try {
+    const payload = {
+      items: cart.map((item) => ({ id: item.id, quantity: item.quantity })),
+      customer
+    };
 
-  const payload = {
-    items: cart.map((item) => ({
-      id: item.id,
-      name: item.name,
-      price: item.price,
-      quantity: item.quantity
-    })),
-    customer
-  };
-
-  const response = await fetch('/api/checkout', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  });
-  const result = await response.json();
-  feedback.textContent = `Order placed successfully! ${result.orderId} for ${result.customerName}. Payment intent ready: ${intentResult.clientSecret ? 'client secret generated' : 'using fallback mode'}.`;
-  cart = [];
-  renderCart();
-  checkoutForm.reset();
-  paymentButton.disabled = false;
-  paymentButton.textContent = 'Complete order';
+    const response = await fetch('/api/checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const result = await response.json();
+    if (!response.ok) {
+      feedback.textContent = result.message || 'Checkout failed. Please try again.';
+      return;
+    }
+    if (result.checkoutUrl) {
+      feedback.textContent = 'Redirecting to secure payment…';
+      sessionStorage.setItem('northstar-pending-cart', JSON.stringify(cart));
+      window.location.assign(result.checkoutUrl);
+      return;
+    }
+    feedback.textContent = `Order ${result.orderId} recorded for ${result.customerName} (total ${formatCurrency(result.total)}). Online payment isn't configured, so it is awaiting payment.`;
+    cart = [];
+    renderCart();
+    checkoutForm.reset();
+  } catch (error) {
+    feedback.textContent = 'Could not reach the server. Please try again.';
+  } finally {
+    paymentButton.disabled = false;
+    paymentButton.textContent = 'Complete order';
+  }
 });
 
 authForm.addEventListener('submit', async (event) => {
@@ -185,5 +187,39 @@ adminForm.addEventListener('submit', async (event) => {
   }
 });
 
+const showPaymentResult = async () => {
+  const params = new URLSearchParams(window.location.search);
+  const orderId = params.get('order');
+  if (!orderId) return;
+  window.history.replaceState({}, '', window.location.pathname);
+
+  const pendingCart = sessionStorage.getItem('northstar-pending-cart');
+  sessionStorage.removeItem('northstar-pending-cart');
+
+  if (params.get('cancelled')) {
+    if (pendingCart) {
+      cart = JSON.parse(pendingCart);
+      renderCart();
+    }
+    feedback.textContent = `Payment for order ${orderId} was cancelled. You have not been charged.`;
+    return;
+  }
+
+  try {
+    const response = await fetch(`/api/payments/confirm?session_id=${encodeURIComponent(params.get('session_id') || '')}`);
+    const result = await response.json();
+    if (!response.ok) {
+      feedback.textContent = result.message || 'Could not confirm your payment.';
+    } else if (result.paid) {
+      feedback.textContent = `Payment received. Order ${result.orderId} is confirmed.`;
+    } else {
+      feedback.textContent = `Payment for order ${result.orderId} is still processing.`;
+    }
+  } catch (error) {
+    feedback.textContent = 'Could not reach the server to confirm your payment.';
+  }
+};
+
 updateAuthStatus();
 loadProducts();
+showPaymentResult();
