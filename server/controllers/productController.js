@@ -1,5 +1,4 @@
 const { listProducts } = require('../models/Product');
-const mongoose = require('mongoose');
 const Order = require('../models/Order');
 
 const SHIPPING = 12;
@@ -38,7 +37,7 @@ const createCheckout = async (req, res) => {
     const total = subtotal + SHIPPING;
     const orderId = `ORD-${Date.now()}`;
 
-    if (mongoose.connection.readyState === 1) {
+    if (process.env.MONGODB_URI) {
       await Order.create({
         orderId,
         customerName: customer.name || 'Guest',
