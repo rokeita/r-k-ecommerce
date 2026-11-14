@@ -16,7 +16,8 @@ const orderSchema = new mongoose.Schema(
     subtotal: { type: Number, required: true },
     shipping: { type: Number, default: 12 },
     total: { type: Number, required: true },
-    status: { type: String, default: 'paid' }
+    status: { type: String, enum: ['pending', 'paid'], default: 'pending' },
+    stripeSessionId: String
   },
   { timestamps: true }
 );

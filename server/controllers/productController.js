@@ -1,5 +1,6 @@
 const { listProducts } = require('../models/Product');
 const Order = require('../models/Order');
+const stripe = require('../config/stripe');
 
 const SHIPPING = 12;
 
@@ -36,26 +37,59 @@ const createCheckout = async (req, res) => {
     const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
     const total = subtotal + SHIPPING;
     const orderId = `ORD-${Date.now()}`;
+    const customerName = customer.name || 'Guest';
+    const email = customer.email || 'guest@example.com';
+
+    // The order is only marked paid once Stripe confirms the charge (webhook or /api/payments/confirm).
+    let session = null;
+    if (stripe) {
+      const origin = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
+      session = await stripe.checkout.sessions.create({
+        mode: 'payment',
+        line_items: [
+          ...items.map((item) => ({
+            price_data: {
+              currency: 'usd',
+              product_data: { name: item.name },
+              unit_amount: Math.round(item.price * 100)
+            },
+            quantity: item.quantity
+          })),
+          {
+            price_data: { currency: 'usd', product_data: { name: 'Shipping' }, unit_amount: SHIPPING * 100 },
+            quantity: 1
+          }
+        ],
+        customer_email: customer.email || undefined,
+        client_reference_id: orderId,
+        metadata: { orderId },
+        success_url: `${origin}/?order=${orderId}&session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${origin}/?order=${orderId}&cancelled=1`
+      });
+    }
 
     if (process.env.MONGODB_URI) {
       await Order.create({
         orderId,
-        customerName: customer.name || 'Guest',
-        email: customer.email || 'guest@example.com',
+        customerName,
+        email,
         items,
         subtotal,
         shipping: SHIPPING,
         total,
-        status: 'paid'
+        status: 'pending',
+        stripeSessionId: session ? session.id : undefined
       });
     }
 
     res.json({
       success: true,
       orderId,
-      customerName: customer.name || 'Guest',
+      customerName,
       total: Number(total.toFixed(2)),
-      items
+      items,
+      status: 'pending',
+      checkoutUrl: session ? session.url : null
     });
   } catch (error) {
     res.status(500).json({ message: error.message });

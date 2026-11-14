@@ -6,11 +6,14 @@ const productRoutes = require('./routes/productRoutes');
 const authRoutes = require('./routes/authRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
+const { handleWebhook } = require('./controllers/paymentController');
 const { seedAdminUser } = require('./models/User');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Stripe signs the raw body, so the webhook must be registered before express.json().
+app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), handleWebhook);
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../public')));
 app.use('/api', productRoutes);
