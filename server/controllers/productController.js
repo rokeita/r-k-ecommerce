@@ -34,8 +34,10 @@ const createCheckout = async (req, res) => {
       items.push({ id: String(item.id), name: product.name, price: product.price, quantity });
     }
 
-    const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    const total = subtotal + SHIPPING;
+    // Total in whole cents, exactly as charged by Stripe, so markOrderPaid's amount check matches.
+    const subtotalCents = items.reduce((sum, item) => sum + Math.round(item.price * 100) * item.quantity, 0);
+    const subtotal = subtotalCents / 100;
+    const total = (subtotalCents + SHIPPING * 100) / 100;
     const orderId = `ORD-${Date.now()}`;
     const customerName = customer.name || 'Guest';
     const email = customer.email || 'guest@example.com';
