@@ -2,7 +2,10 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY || 'sk_test_place
 
 const createPaymentIntent = async (req, res) => {
   try {
-    const { amount, currency = 'usd' } = req.body;
+    const { amount, currency = 'usd' } = req.body || {};
+    if (!Number.isFinite(Number(amount)) || Number(amount) <= 0) {
+      return res.status(400).json({ message: 'A positive amount is required' });
+    }
 
     const paymentIntent = await stripe.paymentIntents.create({
       amount: Math.round(amount * 100),

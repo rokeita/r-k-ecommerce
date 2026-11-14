@@ -7,8 +7,18 @@ const signToken = (user) => jwt.sign(
   { expiresIn: '7d' }
 );
 
+const publicUser = (user) => ({
+  id: user.id || user._id,
+  name: user.name,
+  email: user.email,
+  role: user.role
+});
+
 const login = async (req, res) => {
-  const { email, password } = req.body;
+  const { email, password } = req.body || {};
+  if (!email || !password) {
+    return res.status(400).json({ message: 'Email and password are required' });
+  }
 
   const user = await findUserByEmail(email);
   if (!user) {
@@ -23,17 +33,15 @@ const login = async (req, res) => {
   const token = signToken(user);
   res.json({
     token,
-    user: {
-      id: user.id || user._id,
-      name: user.name,
-      email: user.email,
-      role: user.role
-    }
+    user: publicUser(user)
   });
 };
 
 const register = async (req, res) => {
-  const { name, email, password } = req.body;
+  const { name, email, password } = req.body || {};
+  if (!name || !email || !password) {
+    return res.status(400).json({ message: 'Name, email and password are required' });
+  }
 
   const existing = await findUserByEmail(email);
   if (existing) {
@@ -45,17 +53,12 @@ const register = async (req, res) => {
 
   res.status(201).json({
     token,
-    user: {
-      id: user.id || user._id,
-      name: user.name,
-      email: user.email,
-      role: user.role
-    }
+    user: publicUser(user)
   });
 };
 
 const getProfile = (req, res) => {
-  res.json({ user: req.user });
+  res.json({ user: publicUser(req.user) });
 };
 
 module.exports = {

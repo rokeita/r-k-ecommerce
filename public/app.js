@@ -124,6 +124,12 @@ checkoutForm.addEventListener('submit', async (event) => {
     body: JSON.stringify(payload)
   });
   const result = await response.json();
+  if (!response.ok) {
+    feedback.textContent = result.message || 'Checkout failed. Please try again.';
+    paymentButton.disabled = false;
+    paymentButton.textContent = 'Complete order';
+    return;
+  }
   feedback.textContent = `Order placed successfully! ${result.orderId} for ${result.customerName}. Payment intent ready: ${intentResult.clientSecret ? 'client secret generated' : 'using fallback mode'}.`;
   cart = [];
   renderCart();

@@ -1,5 +1,8 @@
 const { listProducts } = require('../models/Product');
+const mongoose = require('mongoose');
 const Order = require('../models/Order');
+
+const SHIPPING = 12;
 
 const getProducts = async (req, res) => {
   try {
@@ -11,25 +14,38 @@ const getProducts = async (req, res) => {
 };
 
 const createCheckout = async (req, res) => {
-  const { items = [], customer = {} } = req.body;
+  const { items: requested = [], customer = {} } = req.body || {};
 
-  if (items.length === 0) {
+  if (!Array.isArray(requested) || requested.length === 0) {
     return res.status(400).json({ message: 'Cart is empty' });
   }
 
-  const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const total = subtotal + 12;
-  const orderId = `ORD-${Date.now()}`;
-
   try {
-    if (process.env.MONGODB_URI) {
+    // Never trust client-sent prices; look them up from the catalogue.
+    const catalogue = await listProducts();
+    const byId = new Map(catalogue.map((p) => [String(p.id || p._id), p]));
+    const items = [];
+    for (const item of requested) {
+      const product = byId.get(String(item.id));
+      const quantity = Number.parseInt(item.quantity, 10);
+      if (!product || !Number.isInteger(quantity) || quantity < 1) {
+        return res.status(400).json({ message: 'Invalid cart item' });
+      }
+      items.push({ id: String(item.id), name: product.name, price: product.price, quantity });
+    }
+
+    const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const total = subtotal + SHIPPING;
+    const orderId = `ORD-${Date.now()}`;
+
+    if (mongoose.connection.readyState === 1) {
       await Order.create({
         orderId,
         customerName: customer.name || 'Guest',
         email: customer.email || 'guest@example.com',
         items,
         subtotal,
-        shipping: 12,
+        shipping: SHIPPING,
         total,
         status: 'paid'
       });
