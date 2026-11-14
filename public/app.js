@@ -118,6 +118,7 @@ checkoutForm.addEventListener('submit', async (event) => {
     }
     if (result.checkoutUrl) {
       feedback.textContent = 'Redirecting to secure payment…';
+      sessionStorage.setItem('northstar-pending-cart', JSON.stringify(cart));
       window.location.assign(result.checkoutUrl);
       return;
     }
@@ -192,7 +193,14 @@ const showPaymentResult = async () => {
   if (!orderId) return;
   window.history.replaceState({}, '', window.location.pathname);
 
+  const pendingCart = sessionStorage.getItem('northstar-pending-cart');
+  sessionStorage.removeItem('northstar-pending-cart');
+
   if (params.get('cancelled')) {
+    if (pendingCart) {
+      cart = JSON.parse(pendingCart);
+      renderCart();
+    }
     feedback.textContent = `Payment for order ${orderId} was cancelled. You have not been charged.`;
     return;
   }
