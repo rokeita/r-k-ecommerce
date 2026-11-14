@@ -22,12 +22,15 @@ const comparePassword = async (password, hashed) => bcrypt.compare(password, has
 
 const seedAdminUser = async () => {
   if (isMongoConnected()) {
-    const existing = await User.findOne({ email: 'admin@example.com' });
+    // Never seed the public demo password into a real database.
+    const { ADMIN_EMAIL, ADMIN_PASSWORD } = process.env;
+    if (!ADMIN_EMAIL || !ADMIN_PASSWORD) return;
+    const existing = await User.findOne({ email: ADMIN_EMAIL });
     if (!existing) {
       await User.create({
         name: 'Admin',
-        email: 'admin@example.com',
-        password: await hashPassword('password123'),
+        email: ADMIN_EMAIL,
+        password: await hashPassword(ADMIN_PASSWORD),
         role: 'admin'
       });
     }
