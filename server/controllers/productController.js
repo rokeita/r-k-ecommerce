@@ -26,7 +26,7 @@ const createCheckout = async (req, res) => {
     const items = [];
     for (const item of requested) {
       const product = byId.get(String(item.id));
-      const quantity = Number.parseInt(item.quantity, 10);
+      const quantity = Number(item.quantity);
       if (!product || !Number.isInteger(quantity) || quantity < 1) {
         return res.status(400).json({ message: 'Invalid cart item' });
       }
